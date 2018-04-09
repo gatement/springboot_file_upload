@@ -9,6 +9,7 @@ import java.util.List;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -16,8 +17,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.aliyun.oss.OSSClient;
+import com.aliyun.oss.model.BucketInfo;
+
 @Controller
 public class FileUploadController {
+	@Value("${app.oss.endpoint}")
+	private String ossEndPoint;
+	@Value("${app.oss.accessKeyId}")
+	private String ossAccesskeyId;
+	@Value("${app.oss.accessKeySecret}")
+	private String ossAccessKeySecret;
+	@Value("${app.oss.bucketName}")
+	private String ossBucketName;
 
 	@RequestMapping(value = "file", method = RequestMethod.GET)
 	public String file() {
@@ -93,6 +105,42 @@ public class FileUploadController {
 			}
 		}
 		return "true";
+	}
+
+	@RequestMapping(value = "oss", method = RequestMethod.GET)
+	public String oss() {
+		return "/oss";
+	}
+
+	@RequestMapping(value = "ossUpload", method = RequestMethod.POST)
+	@ResponseBody
+	public String ossUpload(@RequestParam("fileName") MultipartFile file) {
+		if (file.isEmpty()) {
+			return "false";
+		}
+		String fileName = file.getOriginalFilename();
+		int size = (int) file.getSize();
+		System.out.println(fileName + "-->" + size);
+
+		OSSClient ossClient = new OSSClient(ossEndPoint, ossAccesskeyId, ossAccessKeySecret);
+
+		try {
+			BucketInfo info = ossClient.getBucketInfo(ossBucketName);
+			System.out.println("Bucket " + ossBucketName + "的信息如下：");
+			System.out.println("\t数据中心：" + info.getBucket().getLocation());
+			System.out.println("\t创建时间：" + info.getBucket().getCreationDate());
+			System.out.println("\t用户标志：" + info.getBucket().getOwner());
+
+			String fileKey = "test2/mytestobj1";
+			ossClient.putObject(ossBucketName, fileKey, file.getInputStream());
+
+			return "true";
+		} catch (Exception e) {
+			e.printStackTrace();
+			return "false";
+		} finally {
+			ossClient.shutdown();
+		}
 	}
 
 	@RequestMapping(value = "download", method = RequestMethod.GET)
